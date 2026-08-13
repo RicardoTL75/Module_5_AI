@@ -1,4 +1,3 @@
-"""Module 5"""
 """Synthetic geometric shapes generator for 2D image and 3D volume autoencoder demos."""
 
 import torch
@@ -30,10 +29,16 @@ def _draw_2d_shape(shape, size, scale, center):
     elif shape == "square":
         mask = (xx.abs() <= half) & (yy.abs() <= half)
     elif shape == "triangle":
-        mask = (yy >= -half) & (yy <= half) & (xx.abs() <= half * (1 - (yy + half) / (2 * half)))
+        mask = (yy >= -half) & (yy <= half) & (
+            xx.abs() <= half * (1 - (yy + half) / (2 * half))
+        )
     elif shape == "cross":
         thickness = half * 0.35
-        mask = ((xx.abs() <= thickness) | (yy.abs() <= thickness)) & (xx.abs() <= half) & (yy.abs() <= half)
+        mask = (
+            ((xx.abs() <= thickness) | (yy.abs() <= thickness))
+            & (xx.abs() <= half)
+            & (yy.abs() <= half)
+        )
     else:
         raise ValueError(f"Unknown 2D shape: {shape}")
     return mask.float()
@@ -52,10 +57,33 @@ def _draw_3d_shape(shape, size, scale, center):
     elif shape == "cylinder":
         mask = (xx ** 2 + yy ** 2 <= half ** 2) & (zz.abs() <= half)
     elif shape == "cone":
-        mask = (zz >= -half) & (zz <= half) & (xx ** 2 + yy ** 2 <= (half * (1 - (zz + half) / (2 * half))) ** 2)
+        mask = (
+            (zz >= -half)
+            & (zz <= half)
+            & (
+                xx ** 2 + yy ** 2
+                <= (half * (1 - (zz + half) / (2 * half))) ** 2
+            )
+        )
     else:
         raise ValueError(f"Unknown 3D shape: {shape}")
     return mask.float()
+
+
+def _validate_size(size):
+    if size not in VALID_SIZES:
+        raise ValueError(
+            f"size must be one of {VALID_SIZES}; got {size}. "
+            "size controls only the spatial resolution and is independent of depth."
+        )
+
+
+def _validate_n_classes(n_classes, class_names):
+    if not isinstance(n_classes, int) or not 1 <= n_classes <= len(class_names):
+        raise ValueError(
+            f"n_classes must be an integer between 1 and {len(class_names)}; "
+            f"got {n_classes}."
+        )
 
 
 def generate_2d_shapes(n_samples, size=64, n_classes=4, seed=None):
@@ -64,8 +92,11 @@ def generate_2d_shapes(n_samples, size=64, n_classes=4, seed=None):
     `size` only controls the image resolution (height=width=size); it is a separate
     knob from the autoencoder's `depth` and must stay independent of it.
     """
-    # TODO (student): restrict `size` to one of VALID_SIZES (64, 128 or 256) and raise
-    # a clear error otherwise. Do not derive `size` from `depth` - keep them decoupled.
+    _validate_size(size)
+    _validate_n_classes(n_classes, SHAPE_CLASSES_2D)
+    if n_samples < 1:
+        raise ValueError(f"n_samples must be >= 1; got {n_samples}.")
+
     generator = torch.Generator().manual_seed(seed) if seed is not None else None
     shapes = SHAPE_CLASSES_2D[:n_classes]
 
@@ -75,7 +106,9 @@ def generate_2d_shapes(n_samples, size=64, n_classes=4, seed=None):
         label = i % len(shapes)
         scale = 0.4 + 0.3 * torch.rand(1, generator=generator).item()
         center = 0.3 * (torch.rand(2, generator=generator) - 0.5) * 2
-        mask = _draw_2d_shape(shapes[label], size, scale, (center[0].item(), center[1].item()))
+        mask = _draw_2d_shape(
+            shapes[label], size, scale, (center[0].item(), center[1].item())
+        )
         images.append(mask.unsqueeze(0))
         labels.append(label)
 
@@ -90,8 +123,11 @@ def generate_3d_shapes(n_samples, size=64, n_classes=4, seed=None):
     `size` only controls the volume resolution (depth=height=width=size); it is a
     separate knob from the autoencoder's `depth` and must stay independent of it.
     """
-    # TODO (student): restrict `size` to one of VALID_SIZES (64, 128 or 256) and raise
-    # a clear error otherwise. Do not derive `size` from `depth` - keep them decoupled.
+    _validate_size(size)
+    _validate_n_classes(n_classes, SHAPE_CLASSES_3D)
+    if n_samples < 1:
+        raise ValueError(f"n_samples must be >= 1; got {n_samples}.")
+
     generator = torch.Generator().manual_seed(seed) if seed is not None else None
     shapes = SHAPE_CLASSES_3D[:n_classes]
 
@@ -101,7 +137,9 @@ def generate_3d_shapes(n_samples, size=64, n_classes=4, seed=None):
         label = i % len(shapes)
         scale = 0.4 + 0.3 * torch.rand(1, generator=generator).item()
         center = 0.2 * (torch.rand(3, generator=generator) - 0.5) * 2
-        mask = _draw_3d_shape(shapes[label], size, scale, tuple(center.tolist()))
+        mask = _draw_3d_shape(
+            shapes[label], size, scale, tuple(center.tolist())
+        )
         volumes.append(mask.unsqueeze(0))
         labels.append(label)
 
